@@ -1,0 +1,45 @@
+name: CI — BikeStore Async
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test-docker:
+    name: Build · Test · Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1 ── Checkout source code
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      # 2 ── Set up Node.js 20
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 3 ── Run the full native test suite
+      #      node --test exits with non-zero if any test fails, halting the pipeline
+      - name: Run unit & integration tests
+        run: node --test test/broker.test.js test/integration.test.js
+        env:
+          PAYMENT_FAILURE_RATE: '0'   # force deterministic results in CI
+          LOG_LEVEL: warn             # reduce noise, keep warnings/errors
+
+      # 4 ── Build the Docker image
+      - name: Build Docker image
+        run: docker build -t bikestore:latest .
+
+      # 5 ── Smoke-test the container (optional but valuable)
+      - name: Smoke-test container
+        run: |
+          docker run -d --name bikestore-ci -p 3000:3000 bikestore:latest
+          sleep 5
+          curl --fail http://localhost:3000/health | grep '"status":"ok"'
+          docker stop bikestore-ci
+          docker rm bikestore-ci

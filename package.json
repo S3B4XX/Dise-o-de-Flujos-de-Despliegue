@@ -1,0 +1,17 @@
+{
+  "name": "bikestore-async",
+  "version": "1.0.0",
+  "description": "BikeStore Async v1.0 — async order processing with native Node.js",
+  "type": "module",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "node --test test/broker.test.js test/integration.test.js",
+    "test:watch": "node --test --watch test/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": ["bikestore", "async", "node", "broker", "dlq"],
+  "license": "MIT"
+}

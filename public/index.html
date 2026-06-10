@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BikeStore Async v1.0</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2d3148;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --danger: #ff4f6b;
+      --warn: #ffb347;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.35rem; font-weight: 700; }
+    header .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .health-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent2);
+      margin-left: auto;
+      box-shadow: 0 0 6px var(--accent2);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+
+    main { display: grid; grid-template-columns: 380px 1fr; gap: 1.5rem; padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Card ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 0.85rem; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+    input {
+      width: 100%; padding: 0.55rem 0.8rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 0.9rem;
+      transition: border-color .2s;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
+    button {
+      width: 100%; padding: 0.7rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+      margin-top: 0.25rem;
+    }
+    button:hover { opacity: .88; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    #order-feedback {
+      margin-top: 0.8rem;
+      font-size: 0.82rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      display: none;
+    }
+    #order-feedback.ok { background: rgba(0,212,170,.12); color: var(--accent2); border: 1px solid rgba(0,212,170,.3); }
+    #order-feedback.err { background: rgba(255,79,107,.12); color: var(--danger); border: 1px solid rgba(255,79,107,.3); }
+
+    /* ── Right panel ── */
+    .right-panel { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Events stream ── */
+    #events-list {
+      max-height: 280px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    .ev-item {
+      font-size: 0.8rem;
+      padding: 0.4rem 0.65rem;
+      border-radius: 5px;
+      border-left: 3px solid transparent;
+      background: rgba(255,255,255,.03);
+      display: flex; gap: 0.6rem; align-items: center;
+    }
+    .ev-item .ev-ts { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+    .ev-item.PUBLISHED { border-color: var(--accent); }
+    .ev-item.PROCESSED { border-color: var(--accent2); }
+    .ev-item.FAILED    { border-color: var(--warn); }
+    .ev-item.DLQ       { border-color: var(--danger); }
+    .ev-badge { font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; font-weight: 700; flex-shrink: 0; }
+    .PUBLISHED .ev-badge { background: rgba(108,99,255,.25); color: var(--accent); }
+    .PROCESSED .ev-badge { background: rgba(0,212,170,.2); color: var(--accent2); }
+    .FAILED    .ev-badge { background: rgba(255,179,71,.2); color: var(--warn); }
+    .DLQ       .ev-badge { background: rgba(255,79,107,.2); color: var(--danger); }
+
+    /* ── DLQ Table ── */
+    .dlq-count {
+      font-size: 0.78rem;
+      background: rgba(255,79,107,.15);
+      color: var(--danger);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 0.5rem;
+    }
+    .dlq-head { display: flex; align-items: center; }
+    #dlq-table-wrap { overflow-x: auto; margin-top: 0.75rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.45rem 0.6rem; border-bottom: 1px solid rgba(255,255,255,.04); word-break: break-all; }
+    tr:last-child td { border-bottom: none; }
+    .empty-state { color: var(--muted); font-size: 0.82rem; text-align: center; padding: 1.5rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.5rem">🚴</span>
+  <h1>BikeStore Async</h1>
+  <span class="badge">v1.0</span>
+  <span class="health-dot" id="health-dot" title="Service health"></span>
+</header>
+
+<main>
+  <!-- ── Order form ── -->
+  <div class="card">
+    <h2>📦 Nuevo Pedido</h2>
+    <div class="form-group">
+      <label>Nombre del cliente</label>
+      <input id="f-name" placeholder="Sebastián López" />
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input id="f-email" type="email" placeholder="cliente@email.com" />
+    </div>
+    <div class="form-group">
+      <label>Producto</label>
+      <input id="f-product" placeholder="Trek Marlin 5 2024" />
+    </div>
+    <div class="form-group">
+      <label>Cantidad</label>
+      <input id="f-qty" type="number" min="1" value="1" />
+    </div>
+    <div class="form-group">
+      <label>Precio unitario (USD)</label>
+      <input id="f-price" type="number" min="0" step="0.01" placeholder="599.99" />
+    </div>
+    <button id="btn-order">Realizar pedido</button>
+    <div id="order-feedback"></div>
+  </div>
+
+  <!-- ── Right side ── -->
+  <div class="right-panel">
+
+    <!-- Events -->
+    <div class="card">
+      <h2>⚡ Eventos del Broker (tiempo real)</h2>
+      <div id="events-list"><p class="empty-state">Sin eventos aún…</p></div>
+    </div>
+
+    <!-- DLQ -->
+    <div class="card">
+      <div class="dlq-head">
+        <h2 style="margin:0">☠ Dead-Letter Queue</h2>
+        <span class="dlq-count" id="dlq-count">0</span>
+      </div>
+      <div id="dlq-table-wrap">
+        <p class="empty-state" id="dlq-empty">No hay mensajes en la DLQ.</p>
+        <table id="dlq-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Cola</th>
+              <th>Razón</th>
+              <th>Intentos</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="dlq-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  // ── Polling ─────────────────────────────────────────────────────────────────
+  let lastEventCount = 0;
+  let lastDlqCount = 0;
+
+  async function poll() {
+    try {
+      const [evRes, dlqRes, hRes] = await Promise.all([
+        fetch('/events'),
+        fetch('/dlq'),
+        fetch('/health'),
+      ]);
+      const { events } = await evRes.json();
+      const { dlq }    = await dlqRes.json();
+      const health     = await hRes.json();
+
+      renderEvents(events);
+      renderDLQ(dlq);
+      document.getElementById('health-dot').style.background =
+        health.status === 'ok' ? 'var(--accent2)' : 'var(--danger)';
+    } catch { /* server might be starting */ }
+  }
+
+  function renderEvents(events) {
+    if (events.length === lastEventCount) return;
+    lastEventCount = events.length;
+    const list = document.getElementById('events-list');
+    list.innerHTML = events.slice().reverse().map(e => {
+      const ts = new Date(e.ts).toLocaleTimeString('es-EC');
+      const mid = e.data?.messageId ?? '';
+      const err = e.data?.error ? ` — ${e.data.error}` : '';
+      const att = e.data?.attempts ? ` (intento ${e.data.attempts})` : '';
+      return `<div class="ev-item ${e.event}">
+        <span class="ev-badge">${e.event}</span>
+        <span>${e.data?.queue ?? ''}${mid ? ' · ' + mid.slice(0,8) : ''}${att}${err}</span>
+        <span class="ev-ts" style="margin-left:auto">${ts}</span>
+      </div>`;
+    }).join('') || '<p class="empty-state">Sin eventos aún…</p>';
+    list.scrollTop = 0;
+  }
+
+  function renderDLQ(dlq) {
+    document.getElementById('dlq-count').textContent = dlq.length;
+    if (dlq.length === lastDlqCount) return;
+    lastDlqCount = dlq.length;
+
+    const empty = document.getElementById('dlq-empty');
+    const table = document.getElementById('dlq-table');
+    const tbody = document.getElementById('dlq-body');
+
+    if (!dlq.length) {
+      empty.style.display = ''; table.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none'; table.style.display = '';
+    tbody.innerHTML = dlq.map(d => `
+      <tr>
+        <td title="${d.message.orderId}">${d.message.orderId.slice(0,8)}…</td>
+        <td>${d.queue}</td>
+        <td style="color:var(--danger)">${d.reason}</td>
+        <td style="text-align:center">${d.attempts}</td>
+        <td>${new Date(d.ts).toLocaleString('es-EC')}</td>
+      </tr>`).join('');
+  }
+
+  setInterval(poll, 1500);
+  poll();
+
+  // ── Order form ──────────────────────────────────────────────────────────────
+  document.getElementById('btn-order').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-order');
+    const fb  = document.getElementById('order-feedback');
+    const payload = {
+      customerName: document.getElementById('f-name').value.trim(),
+      email:        document.getElementById('f-email').value.trim(),
+      product:      document.getElementById('f-product').value.trim(),
+      quantity:     document.getElementById('f-qty').value,
+      unitPrice:    document.getElementById('f-price').value,
+    };
+
+    if (!payload.customerName || !payload.email || !payload.product || !payload.unitPrice) {
+      fb.textContent = 'Por favor completa todos los campos.';
+      fb.className = 'err'; fb.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Procesando…';
+    try {
+      const res = await fetch('/ordenar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fb.textContent = `✅ Pedido aceptado — ID: ${data.orderId.slice(0,8)}…`;
+        fb.className = 'ok';
+      } else {
+        fb.textContent = `❌ Error: ${data.error}`;
+        fb.className = 'err';
+      }
+    } catch {
+      fb.textContent = '❌ No se pudo conectar al servidor.';
+      fb.className = 'err';
+    }
+    fb.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Realizar pedido';
+  });
+</script>
+</body>
+</html>
