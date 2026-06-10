@@ -21,7 +21,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm'
 
       # 3 ── Run the full native test suite
       #      node --test exits with non-zero if any test fails, halting the pipeline
